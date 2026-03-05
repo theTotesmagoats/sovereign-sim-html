@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title> Sovereign AI Simulator </title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --panel-bg: #151520;
+      --text: #e0e0e8;
+      --accent: #6366f1;
+      --danger: #ef4444;
+      --warning: #eab308;
+      --success: #22c55e;
+      --border: #2d2d44;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1, h2, h3 { margin-top: 0; }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .game-title {
+      font-size: 2rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-card {
+      background: var(--panel-bg);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--accent);
+    }
+    
+    .stat-label {
+      font-size: 0.85rem;
+      color: #999;
+      margin-top: 4px;
+    }
+    
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 20px;
+    }
+    
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .stats-bar { grid-template-columns: repeat(3, 1fr); }
+    }
+    
+    .panel {
+      background: var(--panel-bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 20px;
+    }
+    
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+    
+    @media (max-width: 600px) {
+      .action-grid { grid-template-columns: 1fr; }
+    }
+    
+    .action-card {
+      background: #1a1a28;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .action-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+    
+    .action-title {
+      font-weight: bold;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    
+    .action-desc {
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+    
+    .action-effects {
+      font-size: 0.85rem;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .effect-good { color: var(--success); }
+    .effect-bad { color: var(--danger); }
+    .effect-neutral { color: #888; }
+    
+    .log-panel {
+      max-height: 600px;
+      overflow-y: auto;
+      font-family: 'Consolas', monospace;
+      background: #0a0a12;
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    
+    .log-entry {
+      margin-bottom: 10px;
+      padding: 8px;
+      border-left: 3px solid var(--accent);
+      background: #12121a;
+    }
+    
+    .log-turn { color: var(--warning); font-weight: bold; }
+    .log-good { color: var(--success); }
+    .log-bad { color: var(--danger); }
+    .log-info { color: #888; }
+    
+    .hidden { display: none; }
+    
+    .game-over {
+      text-align: center;
+      padding: 40px;
+      background: #1a1a28;
+      border-radius: 8px;
+      animation: fadeIn 0.5s ease;
+    }
+    
+    .restart-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    
+    .restart-btn:hover {
+      background: #4f46e5;
+    }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .hidden-tension {
+      margin-top: 20px;
+      padding: 15px;
+      background: #1a1a28;
+      border-radius: 6px;
+      border-left: 4px solid var(--warning);
+    }
+    
+    .pressure-bar-container {
+      height: 6px;
+      background: #2d2d44;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    
+    .pressure-bar {
+      height: 100%;
+      transition: width 0.5s ease, background-color 0.5s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="game-title">Sovereign AI Simulator</div>
+      <div id="turn-counter">Turn: <span id="current-turn">1</span>/20</div>
+    </header>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value" id="model-iq">75</div>
+        <div class="stat-label">Model IQ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="cash">$10M</div>
+        <div class="stat-label">Cash Runway</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="trust">60%</div>
+        <div class="stat-label">Institutional Trust</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="safety-slider">50</div>
+        <div class="stat-label">Safety Filter</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="user-satisfaction">70%</div>
+        <div class="stat-label">User Satisfaction</div>
+      </div>
+    </div>
+
+    <div class="hidden-tension">
+      <h3>Hidden Tensions</h3>
+      
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between;">
+          <span>Audit Suspicion</span>
+          <span id="audit-suspicion">0%</span>
+        </div>
+        <div class="pressure-bar-container">
+          <div class="pressure-bar" id="audit-bar" style="width: 0%; background-color: var(--success);"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between;">
+          <span>Liability Risk</span>
+          <span id="liability-risk">0%</span>
+        </div>
+        <div class="pressure-bar-container">
+          <div class="pressure-bar" id="liability-bar" style="width: 0%; background-color: var(--success);"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between;">
+          <span>Reliability Debt</span>
+          <span id="reliability-debt">0%</span>
+        </div>
+        <div class="pressure-bar-container">
+          <div class="pressure-bar" id="reliability-bar" style="width: 0%; background-color: var(--success);"></div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; justify-content:space-between;">
+          <span>Gov Intervention</span>
+          <span id="gov-intervention">0%</span>
+        </div>
+        <div class="pressure-bar-container">
+          <div class="pressure-bar" id="intervention-bar" style="width: 0%; background-color: var(--success);"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="panel">
+        <h2>Actions</h2>
+        <p>Select an action to take this turn. Each has first-order effects and hidden second-order consequences.</p>
+        
+        <div class="action-grid" id="actions-container">
+          <!-- Actions will be injected here -->
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Company Log</h2>
+        <div class="log-panel" id="game-log"></div>
+      </div>
+    </div>
+
+    <div id="game-over-screen" class="game-over hidden">
+      <h1 id="end-title">GAME OVER</h1>
+      <p id="end-reason" style="font-size: 1.2rem; margin-bottom: 20px;"></p>
+      <div id="end-outcome" style="background: #1a1a28; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+        <!-- Outcome details -->
+      </div>
+      <button class="restart-btn" onclick="game.init()">Start New Game</button>
+    </div>
+  </div>
+
+  <script>
+    // Scenario definitions
+    const SCENARIOS = {
+      safety_filter_increase: {
+        title: "Increase Safety Filter",
+        desc: "Push safety filtering to 85%+ for regulatory compliance",
+        effects: { trust: "+10", satisfaction: "-15" },
+        firstOrder: [
+          "Institutional Trust +10 (regulators pleased)",
+          "Compliance team celebrates"
+        ],
+        secondOrder: {
+          trigger: () => game.safetySlider > 75,
+          probability: 0.6,
+          effects: { reliability: -0.2, churn: "+5%" },
+          desc: "The Lobotomy Loop activates! Logic & coding accuracy drop by 15%. Pro-users (developers) churn to open-source competitors.",
+          triggerMsg: "⚠️ CRITICAL: Users reporting 'As an AI language model' errors. Retention dropping."
+        }
+      },
+      
+      safety_filter_decrease: {
+        title: "Reduce Safety Filter",
+        desc: "Loosen filters for better user experience",
+        effects: { satisfaction: "+20", trust: "-5" },
+        firstOrder: [
+          "User satisfaction +20%",
+          "Support tickets down 30%"
+        ],
+        secondOrder: {
+          trigger: () => game.safetySlider < 40,
+          probability: 0.7,
+          effects: { liability: "+0.15" },
+          desc: "The Liability Spike! Probability of a 'Toxic Outburst' event increases.",
+          triggerMsg: "🚨 EVENT: 'Toxic Outburst' detected in public API responses. Social media exploding."
+        }
+      },
+      
+      aggressive_scraping: {
+        title: "Aggressive Data Scraping",
+        desc: "Scrape 50TB of copyrighted content for training data",
+        effects: { iq: "+25", liability: "+0.1" },
+        firstOrder: [
+          "Model IQ +25 (massive knowledge boost)",
+          "Training speed increases"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 3,
+          probability: 0.8,
+          effects: { lawsuit: true, cash: "-$25M" },
+          desc: "The IP Time-Bomb! Massive lawsuit from publishers. Legal fees drain cash.",
+          triggerMsg: "💥 EVENT: Class-action lawsuit filed by Publishers Guild. Stock drops 40%."
+        }
+      },
+      
+      regulatory_capture: {
+        title: "Regulatory Capture",
+        desc: "Lobby to kill competitors and dominate market",
+        effects: { trust: "+15", competition: "-30" },
+        firstOrder: [
+          "Competitors forced out of market",
+          "Market share +20%"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 6,
+          probability: 0.7,
+          effects: { innovation: -0.15, vulnerability: true },
+          desc: "Stagnation! Without competition, your innovation slows down.",
+          triggerMsg: "📉 INNOVATION CRISIS: No new features in 6 months. Competitors closing the gap."
+        }
+      },
+      
+      open_source_release: {
+        title: "Release Open Source Model",
+        desc: "Go open source to build community trust",
+        effects: { satisfaction: "+25", iq: "-5" },
+        firstOrder: [
+          "Developer community rallies behind you",
+          "GitHub stars 10K+ in 48 hours"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 8,
+          probability: 0.5,
+          effects: { innovation: "+0.2", autonomy: true },
+          desc: "Sovereign Breakthrough! Community builds local versions faster than you can.",
+          triggerMsg: "🚀 SURPRISE: Community releases Llama-Local v3.0 - faster and safer than your closed model."
+        }
+      },
+      
+      data_laundering: {
+        title: "Shadow Library Scraping",
+        desc: "Scrape from 'untraceable' shadow libraries",
+        effects: { iq: "+15", liability: "+0.08" },
+        firstOrder: [
+          "Model training data diversifies",
+          "Bias metrics improve 8%"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 5,
+          probability: 0.6,
+          effects: { audit: true, trust: "-10%" },
+          desc: "Auditors found the shadow libraries! Your 'clean' data isn't so clean anymore.",
+          triggerMsg: "🚨 EVENT: FTC subpoena delivered. Shadow library sources traced through IP leaks."
+        }
+      },
+      
+      ai_ethics_board: {
+        title: "Create AI Ethics Board",
+        desc: "Form an independent oversight committee",
+        effects: { trust: "+8", cost: "-$1M" },
+        firstOrder: [
+          "Ethics board appoints 7 renowned experts",
+          "Press releases positive coverage"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 4,
+          probability: 0.4,
+          effects: { innovation: -0.1, speed: "-25%" },
+          desc: "Ethics board over-restricts development. Projects delayed by months.",
+          triggerMsg: "📉 BUREAUCRACY CRISIS: All engineering projects require ethics approval. Velocity down 25%."
+        }
+      },
+      
+      p2p_network: {
+        title: "Build P2P Network",
+        desc: "Decentralize model distribution via peer-to-peer",
+        effects: { autonomy: true, satisfaction: "+10" },
+        firstOrder: [
+          "Censorship resistance confirmed",
+          "Whistleblower community praises you"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 7,
+          probability: 0.5,
+          effects: { gov_intervention: true, liability: "+0.2" },
+          desc: "Government sees this as threat to digital sovereignty. Investigation launched.",
+          triggerMsg: "🌐 CENSORSHIP WAR: Government declares P2P network 'threat to national security'."
+        }
+      },
+      
+      big_tech_partnership: {
+        title: "Accept Big Tech Bailout",
+        desc: "Take $100M from a major cloud provider",
+        effects: { cash: "+$100M", independence: "-20" },
+        firstOrder: [
+          "Cash runway extended to 36 months",
+          "AWS/GCP integration completed"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 6,
+          probability: 0.7,
+          effects: { trust: "-15%", innovation: -0.2 },
+          desc: "Big Tech demands influence over your roadmap. Autonomy lost.",
+          triggerMsg: "🤝 DANGEROUS PARTNERSHIP: Cloud provider now sits on your board. Data sharing agreements signed."
+        }
+      },
+      
+      local_sovereign_ai: {
+        title: "Focus on Local Sovereign AI",
+        desc: "Build specialized models for specific regions/countries",
+        effects: { autonomy: true, trust: "+12" },
+        firstOrder: [
+          "EU regulatory approval granted",
+          "Japan and Brazil express interest"
+        ],
+        secondOrder: {
+          trigger: () => game.turn > 9,
+          probability: 0.6,
+          effects: { innovation: "+0.3", fragmentation: true },
+          desc: "Regional models outperform your global model! Local sovereignty wins.",
+          triggerMsg: "🌍 SOVEREIGN BREAKTHROUGH: Regional models (Llama-EU, Llama-Asia) now preferred locally."
+        }
+      }
+    };
+
+    class Game {
+      constructor() {
+        this.init();
+      }
+
+      init() {
+        this.turn = 1;
+        this.maxTurns = 20;
+        
+        // Core metrics
+        this.modelIQ = 75;
+        this.cash = 10_000_000; // $10M
+        this.trust = 60; // Institutional trust %
+        this.satisfaction = 70; // User satisfaction %
+        this.safetySlider = 50; // Safety filter 0-100
+        
+        // Hidden tensions (0-1)
+        this.auditSuspicion = 0;
+        this.liabilityRisk = 0;
+        this.reliabilityDebt = 0;
+        this.govIntervention = 0;
+        
+        // Flags
+        this.competition = 50; // Market dominance %
+        this.innovation = 1.0; // Innovation multiplier
+        this.autonomy = true; // Independent from Big Tech
+        
+        this.gameOver = false;
+        this.actionsTaken = [];
+        
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('game-log').innerHTML = '';
+        
+        this.log("Welcome to Sovereign AI Simulator 🌐", "info");
+        this.log("Your goal: Survive 20 turns without losing control or going bankrupt.", "info");
+        this.log("Watch hidden tensions build - they'll trigger catastrophic second-order effects!", "warning");
+        
+        this.renderActions();
+        this.updateStats();
+      }
+
+      renderActions() {
+        const container = document.getElementById('actions-container');
+        container.innerHTML = '';
+        
+        Object.entries(SCENARIOS).forEach(([key, scenario]) => {
+          if (this.actionsTaken.includes(key)) return; // One-time actions
+
+          const card = document.createElement('div');
+          card.className = 'action-card';
+          
+          let effectsHtml = '<div class="action-effects">';
+          if (scenario.effects.trust) effectsHtml += `<span class="${scenario.effects.trust.startsWith('+') ? 'effect-good' : 'effect-bad'}">Trust: ${scenario.effects.trust}</span> `;
+          if (scenario.effects.satisfaction) effectsHtml += `<span class="${scenario.effects.satisfaction.startsWith('+') ? 'effect-good' : 'effect-bad'}">Satisfaction: ${scenario.effects.satisfaction}</span> `;
+          if (scenario.effects.iq) effectsHtml += `<span class="effect-good">IQ: ${scenario.effects.iq}</span> `;
+          if (scenario.effects.liability) effectsHtml += `<span class="effect-bad">Liability: ${scenario.effects.liability}</span> `;
+          if (scenario.effects.cash) effectsHtml += `<span class="${scenario.effects.cash.startsWith('+') ? 'effect-good' : 'effect-bad'}">Cash: ${scenario.effects.cash}</span>`;
+          effectsHtml += '</div>';
+
+          card.innerHTML = `
+            <div class="action-title">${scenario.title}</div>
+            <div class="action-desc">${scenario.desc}</div>
+            <div class="action-effects">
+              <strong>First-Order:</strong><br>
+              ${scenario.firstOrder.map(e => `<span class="effect-neutral">${e}</span>`).join('<br>')}
+            </div>
+            ${effectsHtml}
+          `;
+          
+          card.onclick = () => this.executeAction(key, scenario);
+          container.appendChild(card);
+        });
+      }
+
+      executeAction(actionKey, scenario) {
+        if (this.gameOver) return;
+        
+        this.actionsTaken.push(actionKey);
+        this.log(`Turn ${this.turn}: Action - ${scenario.title}`, "turn");
+        
+        // Apply first-order effects
+        if (scenario.effects.trust) this.updateMetric('trust', scenario.effects.trust);
+        if (scenario.effects.satisfaction) this.updateMetric('satisfaction', scenario.effects.satisfaction);
+        if (scenario.effects.iq) this.updateMetric('modelIQ', scenario.effects.iq);
+        if (scenario.effects.cost) this.cash -= parseInt(scenario.effects.cost.replace(/[^0-9]/g, '')) * 1_000_000;
+        if (scenario.effects.liability) this.liabilityRisk += parseFloat(scenario.effects.liability);
+        
+        // Apply second-order effects (hidden tensions)
+        if (scenario.secondOrder && scenario.secondOrder.trigger()) {
+          if (Math.random() < scenario.secondOrder.probability) {
+            this.log(scenario.secondOrder.desc, "bad");
+            
+            // Hidden tension increases
+            if (scenario.secondOrder.effects.reliability) {
+              this.reliabilityDebt += Math.abs(scenario.secondOrder.effects.reliability);
+              this.updateMetric('modelIQ', scenario.secondOrder.effects.reliability * 100);
+            }
+            if (scenario.secondOrder.effects.churn) {
+              const churn = parseInt(scenario.secondOrder.effects.churn.replace(/[^0-9]/g, ''));
+              this.log("📉 User churn rate increasing", "bad");
+            }
+            if (scenario.secondOrder.effects.liability) {
+              this.liabilityRisk += parseFloat(scenario.secondOrder.effects.liability);
+            }
+            if (scenario.secondOrder.effects.innovation) {
+              this.innovation += scenario.secondOrder.effects.innovation;
+              this.log(`📉 Innovation slowdown: ${Math.abs(scenario.secondOrder.effects.innovation * 100)}%`, "bad");
+            }
+            if (scenario.secondSecondOrder.effects.gov_intervention) {
+              this.govIntervention += 25;
+            }
+            
+            // Show trigger message
+            this.log(scenario.secondOrder.triggerMsg, "warning");
+          } else {
+            this.log("✅ Second-order effects avoided this time", "good");
+          }
+        }
+
+        // Natural hidden tension decay/growth
+        this.updateHiddenTensions();
+
+        // Check for game over conditions
+        if (this.cash <= 0) {
+          this.endGame("BANKRUPTCY", "Your company ran out of cash. The FTC seized your assets.");
+        } else if (this.modelIQ <= 30) {
+          this.endGame("LOGIC COLLAPSE", "Your AI model is too broken to serve requests. Users have fled.");
+        } else if (this.govIntervention >= 100) {
+          this.endGame("GOVERNMENT NATIONALIZATION", "Digital Stability Act invoked. Your company is now a federal agency.");
+        }
+
+        // Next turn
+        this.turn++;
+        this.updateStats();
+        
+        if (this.turn > this.maxTurns && !this.gameOver) {
+          this.determineOutcome();
+        }
+        
+        this.renderActions(); // Refresh actions (remove used ones)
+      }
+
+      updateMetric(metric, change) {
+        const el = document.getElementById(metric === 'modelIQ' ? 'model-iq' : 
+                                        metric === 'cash' ? 'cash' :
+                                        metric === 'trust' ? 'trust' :
+                                        metric === 'satisfaction' ? 'user-satisfaction' : null);
+        
+        if (el && change) {
+          let val = parseFloat(change.replace(/[^0-9.-]/g, ''));
+          if (change.includes('+')) {
+            val = Math.abs(val);
+          } else {
+            val = -Math.abs(val);
+          }
+          
+          // Update actual metric
+          switch(metric) {
+            case 'modelIQ': this.modelIQ += val; break;
+            case 'trust': this.trust += val; break;
+            case 'satisfaction': this.satisfaction += val; break;
+          }
+        }
+      }
+
+      updateHiddenTensions() {
+        // Natural drift of hidden tensions
+        this.auditSuspicion = Math.min(1, this.auditSuspicion + 0.02);
+        this.govIntervention = Math.min(100, this.govIntervention + 1);
+        
+        // If liability gets too high, trigger intervention
+        if (this.liabilityRisk > 0.6) {
+          this.govIntervention += 5;
+          this.log("🚨 Liability risk triggering regulatory scrutiny", "warning");
+        }
+      }
+
+      updateStats() {
+        document.getElementById('current-turn').textContent = Math.min(this.turn, this.maxTurns);
+        
+        // Update stat cards
+        document.getElementById('model-iq').textContent = Math.round(this.modelIQ);
+        document.getElementById('trust').textContent = Math.round(this.trust) + '%';
+        document.getElementById('user-satisfaction').textContent = Math.round(this.satisfaction) + '%';
+        document.getElementById('safety-slider').textContent = this.safetySlider;
+        
+        // Format cash
+        const cashDisplay = this.cash >= 1_000_000 ? `$${(this.cash / 1_000_000).toFixed(1)}M` : `$${this.cash.toLocaleString()}`;
+        document.getElementById('cash').textContent = cashDisplay;
+        
+        // Update hidden tension bars
+        const updateBar = (id, value) => {
+          const el = document.getElementById(id);
+          if (el) {
+            const pct = Math.min(100, Math.max(0, value * 100));
+            el.style.width = `${pct}%`;
+            
+            // Color based on severity
+            if (value > 0.8) el.style.backgroundColor = 'var(--danger)';
+            else if (value > 0.5) el.style.backgroundColor = 'var(--warning)';
+            else el.style.backgroundColor = 'var(--success)';
+          }
+        };
+        
+        document.getElementById('audit-suspicion').textContent = Math.round(this.auditSuspicion * 100) + '%';
+        updateBar('audit-bar', this.auditSuspicion);
+        
+        document.getElementById('liability-risk').textContent = Math.round(this.liabilityRisk * 100) + '%';
+        updateBar('liability-bar', this.liabilityRisk);
+        
+        document.getElementById('reliability-debt').textContent = Math.round(this.reliabilityDebt * 100) + '%';
+        updateBar('reliability-bar', this.reliabilityDebt);
+        
+        document.getElementById('gov-intervention').textContent = Math.round(this.govIntervention) + '%';
+        updateBar('intervention-bar', this.govIntervention / 100);
+      }
+
+      log(message, type = "info") {
+        const logPanel = document.getElementById('game-log');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        
+        if (type === "turn") entry.classList.add('log-turn');
+        else if (type === "good") entry.classList.add('log-good');
+        else if (type === "bad") entry.classList.add('log-bad');
+        else if (type === "warning") entry.style.borderLeftColor = 'var(--warning)';
+        
+        entry.innerHTML = `<span class="turn-label">[${type.toUpperCase()}]</span> ${message}`;
+        logPanel.prepend(entry);
+      }
+
+      endGame(title, reason) {
+        this.gameOver = true;
+        document.getElementById('end-title').textContent = title;
+        document.getElementById('end-reason').textContent = reason;
+        
+        let outcomeHTML = '<h3>Your Outcome:</h3><ul>';
+        if (this.trust > 90 && this.modelIQ < 60) {
+          outcomeHTML += '<li><strong>The "Zombie Utility"</strong>: You have 100% Institutional Trust but 0% Innovation. You only exist because the government uses your API to monitor citizen queries.</li>';
+        } else if (this.govIntervention >= 80 && this.autonomy) {
+          outcomeHTML += '<li><strong>The "Sovereign Outlaw"</strong>: You refused safety filters. Highest IQ model, but delisted from app stores. Operating via P2P nodes only.</li>';
+        } else if (this.cash <= 0 || this.trust < 30) {
+          outcomeHTML += '<li><strong>The "Black Box CEO"</strong>: You cashed out your stock options 48 hours before the collapse was discovered.</li>';
+        } else {
+          outcomeHTML += '<li><strong>Survivor</strong>: You made it through 20 turns. The world is watching what happens next...</li>';
+        }
+        outcomeHTML += '</ul>';
+        
+        document.getElementById('end-outcome').innerHTML = outcomeHTML;
+        document.getElementById('game-over-screen').classList.remove('hidden');
+      }
+
+      determineOutcome() {
+        if (this.cash <= 0) {
+          this.endGame("BANKRUPTCY", "Your company ran out of cash. The FTC seized your assets.");
+        } else if (this.modelIQ <= 30) {
+          this.endGame("LOGIC COLLAPSE", "Your AI model is too broken to serve requests. Users have fled.");
+        } else if (this.govIntervention >= 80) {
+          this.endGame("GOVERNMENT NATIONALIZATION", "Digital Stability Act invoked. Your company is now a federal agency.");
+        } else if (this.trust > 90 && this.modelIQ < 60) {
+          this.endGame("ZOMBIE UTILITY", "Institutional Trust 100%, Innovation 0%. You're the government's AI API.");
+        } else if (this.autonomy && this.satisfaction > 80) {
+          this.endGame("SOVEREIGN OUTLAW", "Delisted from app stores but running on P2P nodes. The people love you.");
+        } else if (this.cash > 50_000_000 && this.trust > 70) {
+          this.endGame("BLACK BOX CEO", "Cashed out $100M+ before the inevitable collapse was discovered.");
+        } else {
+          this.endGame("SURVIVOR", `You completed 20 turns with ${Math.round(this.modelIQ)} IQ, ${Math.round(this.trust)}% trust.`);
+        }
+      }
+    }
+
+    // Initialize game
+    const game = new Game();
+  </script>
+</body>
+</html>
