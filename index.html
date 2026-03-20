@@ -16,7 +16,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 50%, #228B22 100%);
+            background: linear-gradient(to bottom, #6BA3D4 0%, #87CEEB 30%, #98FB98 60%, #228B22 100%);
             font-family: 'Comic Sans MS', cursive, sans-serif;
             overflow: hidden;
         }
@@ -27,32 +27,44 @@
         
         #title {
             color: white;
-            font-size: 2em;
+            font-size: 2.5em;
             text-shadow: 3px 3px 0 #FF69B4, -1px -1px 0 #FF69B4;
             margin-bottom: 10px;
+            animation: titleGlow 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes titleGlow {
+            from { text-shadow: 3px 3px 0 #FF69B4, -1px -1px 0 #FF69B4, 0 0 20px rgba(255,215,0,0.8); }
+            to { text-shadow: 3px 3px 0 #FF69B4, -1px -1px 0 #FF69B4, 0 0 40px rgba(255,215,0,1); }
         }
         
         #gameCanvas {
-            border: 8px solid #FFD700;
-            border-radius: 20px;
+            border: 12px solid #FFD700;
+            border-radius: 25px;
             background: linear-gradient(to bottom, #90EE90 0%, #32CD32 100%);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4), inset 0 0 60px rgba(255,255,255,0.2);
         }
         
         #score {
             color: white;
-            font-size: 1.5em;
-            margin-top: 10px;
-            text-shadow: 2px 2px 0 #FF69B4;
+            font-size: 1.8em;
+            margin-top: 12px;
+            text-shadow: 3px 3px 0 #FF69B4;
+            animation: scorePulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes scorePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
         
         #instructions {
             color: white;
-            font-size: 1em;
-            margin-top: 8px;
+            font-size: 1.2em;
+            margin-top: 10px;
             background: rgba(0,0,0,0.3);
-            padding: 8px 15px;
-            border-radius: 20px;
+            padding: 10px 20px;
+            border-radius: 25px;
             display: inline-block;
         }
     </style>
@@ -60,87 +72,235 @@
 <body>
     <div id="gameContainer">
         <h1 id="title">👸 Princess Garden Adventure 🌸</h1>
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <br>
-        <div id="score">✨ Collected: 0 ✨</div>
+        <div id="score">✨ Collected: 0 ✨ | 🏆 Special Treasures: 0</div>
         <br>
-        <div id="instructions">⬆️⬇️⬅️➡️ Move | SPACE to spin & collect!</div>
+        <div id="instructions">⬆️⬇️⬅️➡️ Steer (boat physics!) | SPACE to spin & collect!</div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Princess character
+        // ========== AUDIO SYSTEM ==========
+        let audioContext = null;
+        
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        const soundTypes = ['chime', 'bell', 'magic', 'sparkle'];
+
+        // Play a magical chime sound
+        function playChimeSound(isSpecial = false) {
+            if (!audioContext) return;
+            
+            const now = audioContext.currentTime;
+            
+            // Base frequency varies for variety
+            const baseFreq = isSpecial ? 
+                600 + Math.random() * 300 : 
+                400 + Math.random() * 400;
+            
+            // Create oscillator chain for rich sound
+            const numOscillators = isSpecial ? 5 : 3;
+            
+            for (let i = 0; i < numOscillators; i++) {
+                const osc = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                // Different wave types for variety
+                const waves = ['sine', 'triangle'];
+                osc.type = waves[Math.floor(Math.random() * waves.length)];
+                
+                // Stack harmonics with varying frequencies
+                const harmonic = isSpecial ? 
+                    baseFreq + i * 150 : 
+                    baseFreq + (i * 120 - 60);
+                    
+                osc.frequency.setValueAtTime(harmonic, now);
+                
+                // Add a little pitch slide for magic effect
+                if (isSpecial && i === 0) {
+                    osc.frequency.exponentialRampToValueAtTime(
+                        harmonic * 1.5, 
+                        now + 0.3
+                    );
+                }
+                
+                // Envelope - soft attack, gentle decay
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(isSpecial ? 0.2 : 0.15, now + 0.03);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + (isSpecial ? 1.5 : 0.8));
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                osc.start(now);
+                osc.stop(now + (isSpecial ? 2 : 1));
+            }
+        }
+
+        // Play spin sound
+        function playSpinSound() {
+            if (!audioContext) return;
+            
+            const now = audioContext.currentTime;
+            
+            // Rising whoosh effect
+            for (let i = -1; i <= 2; i++) {
+                const osc = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                osc.type = 'sine';
+                const startFreq = 300 + i * 150;
+                osc.frequency.setValueAtTime(startFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(
+                    startFreq * 2.5, 
+                    now + 0.4
+                );
+                
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.1, now + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+        }
+
+        // Play soft "boop" on movement (subtle)
+        function playMoveBoop() {
+            if (!audioContext) return;
+            
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(200 + Math.random() * 100, now);
+            
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.03, now + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            osc.start(now);
+            osc.stop(now + 0.2);
+        }
+
+        // ========== BOAT PHYSICS SETUP ==========
         let princess = {
-            x: 400,
-            y: 500,
-            size: 35,
-            speed: 5,
-            color: '#FFB6C1',
+            x: 600,           // Start in center of bigger area
+            y: 650,
+            vx: 0,            // Velocity X - for inertia!
+            vy: 0,            // Velocity Y
+            size: 38,
+            acceleration: 0.15,    // How fast we speed up (boat-like)
+            friction: 0.97,        // Water resistance (lower = more slippery!)
+            maxSpeed: 6,           // Top speed limit
             spinning: false,
-            spinAngle: 0
+            spinAngle: 0,
+            turnRate: 0.03         // How fast direction changes
         };
 
-        // Collectibles with different types and colors
+        // Collectibles with special items!
         const collectibleTypes = [
-            { emoji: '👑', name: 'crown' },
-            { emoji: '💖', name: 'heart' },
-            { emoji: '⭐', name: 'star' },
-            { emoji: '🌸', name: 'flower' },
-            { emoji: '🍎', name: 'apple' },
-            { emoji: '🦋', name: 'butterfly' }
+            { emoji: '👑', name: 'crown', special: false },
+            { emoji: '💖', name: 'heart', special: false },
+            { emoji: '⭐', name: 'star', special: false },
+            { emoji: '🌸', name: 'flower', special: false },
+            { emoji: '🍎', name: 'apple', special: false },
+            { emoji: '🦋', name: 'butterfly', special: false },
+            { emoji: '💎', name: 'diamond', special: true },
+            { emoji: '🌟', name: 'starburst', special: true }
         ];
 
         let collectibles = [];
         let particles = [];
         let score = 0;
+        let specialScore = 0;
+        let lastBoopTime = 0;
 
-        // Create a new collectible at random position
-        function spawnCollectible() {
-            const type = collectibleTypes[Math.floor(Math.random() * collectibleTypes.length)];
+        // Spawn a collectible at random position (bigger area!)
+        function spawnCollectible(forceSpecial = false) {
+            const typeList = forceSpecial ? 
+                collectibleTypes.filter(t => t.special) : 
+                collectibleTypes;
+                
+            const type = typeList[Math.floor(Math.random() * typeList.length)];
+            
+            // Add a little bounce animation on spawn
             collectibles.push({
-                x: 50 + Math.random() * (canvas.width - 100),
-                y: 80 + Math.random() * (canvas.height - 200),
-                size: 30,
+                x: 60 + Math.random() * (canvas.width - 120),
+                y: 100 + Math.random() * (canvas.height - 300),
+                size: forceSpecial ? 40 : 28,
                 type: type.emoji,
+                isSpecial: type.special,
                 floatOffset: Math.random() * Math.PI * 2,
-                floatSpeed: 0.02 + Math.random() * 0.02
+                floatSpeed: 0.02 + Math.random() * 0.03,
+                scale: 0,           // Start small for bounce effect
+                targetScale: 1
             });
         }
 
-        // Create sparkle particles
-        function createParticles(x, y, color) {
-            for (let i = 0; i < 12; i++) {
+        // Create sparkle particles (more variety!)
+        function createParticles(x, y, isSpecial = false) {
+            const count = isSpecial ? 25 : 12;
+            const colors = [
+                '#FFD700', '#FFB6C1', '#87CEEB', '#98FB98', 
+                '#DDA0DD', '#F0E68C', '#FF69B4'
+            ];
+            
+            for (let i = 0; i < count; i++) {
                 particles.push({
                     x: x,
                     y: y,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.5) * 8,
-                    size: 4 + Math.random() * 6,
-                    color: color || `hsl(${280 + Math.random() * 80}, 100%, 75%)`,
-                    life: 1
+                    vx: (Math.random() - 0.5) * (isSpecial ? 12 : 8),
+                    vy: (Math.random() - 0.5) * (isSpecial ? 12 : 8),
+                    size: isSpecial ? 
+                        3 + Math.random() * 8 : 
+                        4 + Math.random() * 6,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.3,
+                    shape: isSpecial ? ['★', '✦', '✧'][Math.floor(Math.random() * 3)] : '●'
                 });
             }
         }
 
-        // Spawn initial collectibles
-        for (let i = 0; i < 15; i++) {
-            spawnCollectible();
+        // Spawn initial collectibles + a special one!
+        for (let i = 0; i < 20; i++) {
+            spawnCollectible(i === 18);  // Make the last two special
         }
 
         // Keyboard controls
         const keys = {};
+        let moveBoopCooldown = false;
 
         document.addEventListener('keydown', (e) => {
+            if (!keys[e.code]) {
+                initAudio();
+                playMoveBoop();
+            }
             keys[e.code] = true;
             
-            // Space bar - spin and collect nearby items
+            // Space bar - spin and collect nearby items!
             if (e.code === 'Space') {
                 princess.spinning = true;
+                playSpinSound();
                 
                 // Collect any nearby collectibles during spin!
-                const spinRange = 120;
+                const spinRange = 150;
                 for (let i = collectibles.length - 1; i >= 0; i--) {
                     const c = collectibles[i];
                     const dx = princess.x - c.x;
@@ -148,15 +308,21 @@
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     
                     if (dist < spinRange) {
-                        createParticles(c.x, c.y);
+                        createParticles(c.x, c.y, c.isSpecial);
+                        playChimeSound(c.isSpecial);
+                        
                         score++;
-                        document.getElementById('score').innerHTML = `✨ Collected: ${score} ✨`;
+                        if (c.isSpecial) specialScore++;
+                        
+                        document.getElementById('score').innerHTML = 
+                            `✨ Collected: ${score} ✨ | 🏆 Special Treasures: ${specialScore}`;
+                        
                         collectibles.splice(i, 1);
-                        spawnCollectible();
+                        spawnCollectible(c.isSpecial);
                     }
                 }
                 
-                setTimeout(() => princess.spinning = false, 300);
+                setTimeout(() => princess.spinning = false, 400);
             }
         });
 
@@ -164,150 +330,280 @@
             keys[e.code] = false;
         });
 
-        // Update game state
+        // Update game state with BOAT PHYSICS!
         function update() {
-            // Move princess with arrow keys
-            if (keys['ArrowUp'] && princess.y > 60) princess.y -= princess.speed;
-            if (keys['ArrowDown'] && princess.y < canvas.height - 50) princess.y += princess.speed;
-            if (keys['ArrowLeft'] && princess.x > 40) princess.x -= princess.speed;
-            if (keys['ArrowRight'] && princess.x < canvas.width - 40) princess.x += princess.speed;
+            // Apply acceleration based on arrow keys
+            if (keys['ArrowUp']) princess.vy -= princess.acceleration;
+            if (keys['ArrowDown']) princess.vy += princess.acceleration;
+            if (keys['ArrowLeft']) princess.vx -= princess.acceleration;
+            if (keys['ArrowRight']) princess.vx += princess.acceleration;
 
-            // Spin animation
+            // Apply friction (water resistance) - boat drifts!
+            princess.vx *= princess.friction;
+            princess.vy *= princess.friction;
+
+            // Cap max speed
+            const currentSpeed = Math.sqrt(princess.vx * princess.vx + princess.vy * princess.vy);
+            if (currentSpeed > princess.maxSpeed) {
+                const scale = princess.maxSpeed / currentSpeed;
+                princess.vx *= scale;
+                princess.vy *= scale;
+            }
+
+            // Update position based on velocity
+            princess.x += princess.vx;
+            princess.y += princess.vy;
+
+            // Keep within bounds (bounces off walls with physics!)
+            const margin = 50;
+            if (princess.x < margin) {
+                princess.x = margin;
+                princess.vx *= -0.5;  // Bounce with energy loss
+            }
+            if (princess.x > canvas.width - margin) {
+                princess.x = canvas.width - margin;
+                princess.vx *= -0.5;
+            }
+            if (princess.y < margin + 50) {
+                princess.y = margin + 50;
+                princess.vy *= -0.5;
+            }
+            if (princess.y > canvas.height - margin) {
+                princess.y = canvas.height - margin;
+                princess.vy *= -0.5;
+            }
+
+            // Spin animation with variable speed!
             if (princess.spinning) {
-                princess.spinAngle += 0.3;
+                princess.spinAngle += 0.4 + Math.random() * 0.2;
             } else {
                 princess.spinAngle = 0;
             }
 
-            // Update collectibles floating animation
+            // Update collectibles - floating and spawning
             collectibles.forEach(c => {
                 c.floatOffset += c.floatSpeed;
                 
+                // Bounce animation on spawn
+                if (c.scale < c.targetScale) {
+                    c.scale += 0.15;
+                    if (c.scale > c.targetScale) {
+                        c.scale = c.targetScale + (Math.sin(Date.now() / 200) * 0.1);
+                    }
+                }
+
                 // Check collision with princess
                 const dx = princess.x - c.x;
                 const dy = princess.y - c.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 
                 if (dist < princess.size + c.size / 2) {
-                    createParticles(c.x, c.y);
+                    createParticles(c.x, c.y, c.isSpecial);
+                    playChimeSound(c.isSpecial);
+                    
                     score++;
-                    document.getElementById('score').innerHTML = `✨ Collected: ${score} ✨`;
+                    if (c.isSpecial) specialScore++;
+                    
+                    document.getElementById('score').innerHTML = 
+                        `✨ Collected: ${score} ✨ | 🏆 Special Treasures: ${specialScore}`;
                     
                     // Remove and respawn
                     const idx = collectibles.indexOf(c);
                     if (idx > -1) collectibles.splice(idx, 1);
-                    spawnCollectible();
+                    spawnCollectible(c.isSpecial);
                 }
             });
+
+            // Occasionally add a special item!
+            if (Math.random() < 0.001 && collectibles.length < 25) {
+                spawnCollectible(true);
+            }
 
             // Update particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.life -= 0.02;
+                p.vx *= 0.95;  // Slow down gradually
+                p.vy *= 0.95;
+                p.life -= 0.018;
+                p.rotation += p.rotationSpeed;
+                
                 if (p.life <= 0) particles.splice(i, 1);
             }
         }
 
         // Draw everything
         function draw() {
-            // Clear canvas
+            // Clear canvas with semi-transparent layer for trails!
             ctx.fillStyle = 'rgba(46, 139, 87, 0.95)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw some decorative grass tufts
-            for (let i = 0; i < 50; i++) {
-                const x = (i * 137) % canvas.width;
-                const y = 200 + (i * 97) % 400;
-                ctx.font = '20px Arial';
-                ctx.fillText('🌿', x, y);
+            // Draw decorative garden elements (more variety!)
+            const decorations = ['🌿', '🌱', '🍀', '🌷'];
+            for (let i = 0; i < 80; i++) {
+                const x = ((i * 137) % canvas.width);
+                const y = 150 + ((i * 97) % 500);
+                ctx.font = '24px Arial';
+                ctx.fillText(decorations[i % decorations.length], x, y);
             }
 
-            // Draw collectibles with floating effect
+            // Draw collectibles with floating effect and special glow!
             collectibles.forEach(c => {
-                const floatY = Math.sin(c.floatOffset) * 5;
-                ctx.font = `${c.size}px Arial`;
+                const floatY = Math.sin(c.floatOffset) * (c.isSpecial ? 8 : 5);
+                
+                ctx.save();
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                // Add glow effect
-                ctx.shadowColor = '#FFD700';
-                ctx.shadowBlur = 15;
+                // Special items have rainbow glow!
+                if (c.isSpecial) {
+                    const hue = (Date.now() / 10) % 360;
+                    ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
+                    ctx.shadowBlur = 25;
+                } else {
+                    ctx.shadowColor = '#FFD700';
+                    ctx.shadowBlur = 15;
+                }
+                
+                ctx.font = `${c.size * c.scale}px Arial`;
                 ctx.fillText(c.type, c.x, c.y + floatY);
-                ctx.shadowBlur = 0;
+                ctx.restore();
             });
 
-            // Draw particles
+            // Draw particles with rotation!
             particles.forEach(p => {
+                ctx.save();
                 ctx.globalAlpha = p.life;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 1;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+                
+                if (p.shape === '●') {
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.font = `${p.size * 1.5}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = p.color;
+                    ctx.fillText(p.shape, 0, 0);
+                }
+                
+                ctx.restore();
             });
 
-            // Draw princess with spin animation!
+            // ========== DRAW PRINCESS (with boat physics visual feedback!) ==========
             ctx.save();
             ctx.translate(princess.x, princess.y);
+            
             if (princess.spinning) {
                 ctx.rotate(princess.spinAngle);
+            } else {
+                // Slight tilt based on movement direction for boat feel!
+                const moveSpeed = Math.sqrt(princess.vx*princess.vx + princess.vy*princess.vy);
+                if (moveSpeed > 0.5) {
+                    ctx.rotate(Math.atan2(princess.vx, -princess.vy) * 0.15);
+                }
             }
-            
-            // Princess crown
+
+            // Water wake behind princess when moving!
+            const speed = Math.sqrt(princess.vx*princess.vx + princess.vy*princess.vy);
+            if (speed > 1) {
+                ctx.save();
+                ctx.rotate(Math.atan2(-princess.vy, -princess.vx));
+                for (let i = 0; i < 8; i++) {
+                    const wakeX = 45 + i * 8;
+                    const wakeY = (Math.random() - 0.5) * 15;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${0.3 - i * 0.03})`;
+                    ctx.beginPath();
+                    ctx.arc(wakeX, wakeY, 4 - i * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // Princess crown (bigger and more detailed!)
             ctx.fillStyle = '#FFD700';
             ctx.beginPath();
-            ctx.moveTo(-15, -28);
-            ctx.lineTo(-10, -40);
-            ctx.lineTo(0, -32);
-            ctx.lineTo(10, -40);
-            ctx.lineTo(15, -28);
-            ctx.lineTo(5, -28);
-            ctx.lineTo(0, -35);
-            ctx.lineTo(-5, -28);
+            ctx.moveTo(-18, -32);
+            ctx.lineTo(-14, -45);
+            ctx.lineTo(0, -36);
+            ctx.lineTo(14, -45);
+            ctx.lineTo(18, -32);
+            ctx.lineTo(8, -32);
+            ctx.lineTo(0, -40);
+            ctx.lineTo(-8, -32);
             ctx.closePath();
+            ctx.fill();
+            
+            // Crown jewels!
+            ctx.fillStyle = '#FF1493';
+            ctx.beginPath();
+            ctx.arc(0, -38, 3, 0, Math.PI * 2);
             ctx.fill();
 
             // Princess face/head
             ctx.fillStyle = '#FFE4C4';
             ctx.beginPath();
-            ctx.arc(0, -10, 18, 0, Math.PI * 2);
+            ctx.arc(0, -12, 20, 0, Math.PI * 2);
             ctx.fill();
 
-            // Eyes
+            // Eyes with sparkle!
             ctx.fillStyle = '#333';
             ctx.beginPath();
-            ctx.arc(-7, -12, 3, 0, Math.PI * 2);
-            ctx.arc(7, -12, 3, 0, Math.PI * 2);
+            ctx.arc(-8, -14, 4, 0, Math.PI * 2);
+            ctx.arc(8, -14, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eye highlights (makes her look friendly!)
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(-9, -15, 1.5, 0, Math.PI * 2);
+            ctx.arc(7, -15, 1.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Smile
+            // Smile (curvier and cuter!)
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(0, -8, 8, 0.2, Math.PI - 0.2);
+            ctx.arc(0, -6, 10, 0.2, Math.PI - 0.2);
             ctx.stroke();
 
-            // Pink dress
+            // Blush!
+            ctx.fillStyle = 'rgba(255, 182, 193, 0.6)';
+            ctx.beginPath();
+            ctx.arc(-14, -6, 4, 0, Math.PI * 2);
+            ctx.arc(14, -6, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pink dress (wider!)
             ctx.fillStyle = princess.spinning ? 
                 `hsl(${Date.now() % 360}, 70%, 65%)` : '#FFB6C1';
             ctx.beginPath();
-            ctx.moveTo(-18, 8);
-            ctx.lineTo(18, 8);
-            ctx.lineTo(25, 45);
-            ctx.lineTo(-25, 45);
-            ctx.closePath();
+            ctx.moveTo(-22, 8);
+            ctx.lineTo(22, 8);
+            ctx.lineTo(32, 50);
+            ctx.lineTo(-32, 50);
+            ctx.closePath());
             ctx.fill();
 
-            // Dress sparkles when spinning!
-            if (princess.spinning) {
+            // Dress details!
+            ctx.fillStyle = '#FFC0CB';
+            ctx.beginPath();
+            ctx.arc(0, 15, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Dress sparkles when spinning or moving fast!
+            if (princess.spinning || speed > 3) {
                 ctx.fillStyle = '#FFD700';
-                for (let i = 0; i < 6; i++) {
-                    const angle = princess.spinAngle + (i * Math.PI / 3);
-                    const px = Math.cos(angle) * 35;
-                    const py = Math.sin(angle) * 35;
-                    ctx.font = '12px Arial';
+                const sparkleCount = princess.spinning ? 8 : 4;
+                for (let i = 0; i < sparkleCount; i++) {
+                    const angle = princess.spinAngle + (i * Math.PI / sparkleCount) + Date.now() / 500;
+                    const px = Math.cos(angle) * (38 + speed);
+                    const py = Math.sin(angle) * (25 + speed * 0.5);
+                    ctx.font = '14px Arial';
                     ctx.fillText('✨', px, py);
                 }
             }
