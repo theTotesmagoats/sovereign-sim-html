@@ -76,7 +76,7 @@
         <br>
         <div id="score">✨ Collected: 0 ✨ | 🏆 Special Treasures: 0</div>
         <br>
-        <div id="instructions">⬆️⬇️⬅️➡️ Steer (boat physics!) | SPACE to spin & collect!</div>
+        <div id="instructions">⬆️⬇️⬅️➡️ Steer (boat physics!) | SPACE or OPTION ⌥ to spin & collect!</div>
     </div>
 
     <script>
@@ -92,46 +92,28 @@
             }
         }
 
-        const soundTypes = ['chime', 'bell', 'magic', 'sparkle'];
-
         // Play a magical chime sound
         function playChimeSound(isSpecial = false) {
             if (!audioContext) return;
             
             const now = audioContext.currentTime;
-            
-            // Base frequency varies for variety
-            const baseFreq = isSpecial ? 
-                600 + Math.random() * 300 : 
-                400 + Math.random() * 400;
-            
-            // Create oscillator chain for rich sound
+            const baseFreq = isSpecial ? 600 + Math.random() * 300 : 400 + Math.random() * 400;
             const numOscillators = isSpecial ? 5 : 3;
             
             for (let i = 0; i < numOscillators; i++) {
                 const osc = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
                 
-                // Different wave types for variety
                 const waves = ['sine', 'triangle'];
                 osc.type = waves[Math.floor(Math.random() * waves.length)];
                 
-                // Stack harmonics with varying frequencies
-                const harmonic = isSpecial ? 
-                    baseFreq + i * 150 : 
-                    baseFreq + (i * 120 - 60);
-                    
+                const harmonic = isSpecial ? baseFreq + i * 150 : baseFreq + (i * 120 - 60);
                 osc.frequency.setValueAtTime(harmonic, now);
                 
-                // Add a little pitch slide for magic effect
                 if (isSpecial && i === 0) {
-                    osc.frequency.exponentialRampToValueAtTime(
-                        harmonic * 1.5, 
-                        now + 0.3
-                    );
+                    osc.frequency.exponentialRampToValueAtTime(harmonic * 1.5, now + 0.3);
                 }
                 
-                // Envelope - soft attack, gentle decay
                 gainNode.gain.setValueAtTime(0, now);
                 gainNode.gain.linearRampToValueAtTime(isSpecial ? 0.2 : 0.15, now + 0.03);
                 gainNode.gain.exponentialRampToValueAtTime(0.001, now + (isSpecial ? 1.5 : 0.8));
@@ -150,7 +132,6 @@
             
             const now = audioContext.currentTime;
             
-            // Rising whoosh effect
             for (let i = -1; i <= 2; i++) {
                 const osc = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
@@ -158,10 +139,7 @@
                 osc.type = 'sine';
                 const startFreq = 300 + i * 150;
                 osc.frequency.setValueAtTime(startFreq, now);
-                osc.frequency.exponentialRampToValueAtTime(
-                    startFreq * 2.5, 
-                    now + 0.4
-                );
+                osc.frequency.exponentialRampToValueAtTime(startFreq * 2.5, now + 0.4);
                 
                 gainNode.gain.setValueAtTime(0, now);
                 gainNode.gain.linearRampToValueAtTime(0.1, now + 0.05);
@@ -175,7 +153,7 @@
             }
         }
 
-        // Play soft "boop" on movement (subtle)
+        // Play soft "boop" on movement
         function playMoveBoop() {
             if (!audioContext) return;
             
@@ -199,17 +177,16 @@
 
         // ========== BOAT PHYSICS SETUP ==========
         let princess = {
-            x: 600,           // Start in center of bigger area
+            x: 600,
             y: 650,
-            vx: 0,            // Velocity X - for inertia!
-            vy: 0,            // Velocity Y
+            vx: 0,
+            vy: 0,
             size: 38,
-            acceleration: 0.15,    // How fast we speed up (boat-like)
-            friction: 0.97,        // Water resistance (lower = more slippery!)
-            maxSpeed: 6,           // Top speed limit
+            acceleration: 0.15,
+            friction: 0.97,
+            maxSpeed: 6,
             spinning: false,
-            spinAngle: 0,
-            turnRate: 0.03         // How fast direction changes
+            spinAngle: 0
         };
 
         // Collectibles with special items!
@@ -228,9 +205,8 @@
         let particles = [];
         let score = 0;
         let specialScore = 0;
-        let lastBoopTime = 0;
 
-        // Spawn a collectible at random position (bigger area!)
+        // Spawn a collectible at random position
         function spawnCollectible(forceSpecial = false) {
             const typeList = forceSpecial ? 
                 collectibleTypes.filter(t => t.special) : 
@@ -238,7 +214,6 @@
                 
             const type = typeList[Math.floor(Math.random() * typeList.length)];
             
-            // Add a little bounce animation on spawn
             collectibles.push({
                 x: 60 + Math.random() * (canvas.width - 120),
                 y: 100 + Math.random() * (canvas.height - 300),
@@ -247,12 +222,12 @@
                 isSpecial: type.special,
                 floatOffset: Math.random() * Math.PI * 2,
                 floatSpeed: 0.02 + Math.random() * 0.03,
-                scale: 0,           // Start small for bounce effect
+                scale: 0,
                 targetScale: 1
             });
         }
 
-        // Create sparkle particles (more variety!)
+        // Create sparkle particles!
         function createParticles(x, y, isSpecial = false) {
             const count = isSpecial ? 25 : 12;
             const colors = [
@@ -266,9 +241,7 @@
                     y: y,
                     vx: (Math.random() - 0.5) * (isSpecial ? 12 : 8),
                     vy: (Math.random() - 0.5) * (isSpecial ? 12 : 8),
-                    size: isSpecial ? 
-                        3 + Math.random() * 8 : 
-                        4 + Math.random() * 6,
+                    size: isSpecial ? 3 + Math.random() * 8 : 4 + Math.random() * 6,
                     color: colors[Math.floor(Math.random() * colors.length)],
                     life: 1,
                     rotation: Math.random() * Math.PI * 2,
@@ -278,14 +251,14 @@
             }
         }
 
-        // Spawn initial collectibles + a special one!
+        // Spawn initial collectibles + special ones!
         for (let i = 0; i < 20; i++) {
-            spawnCollectible(i === 18);  // Make the last two special
+            spawnCollectible(i === 18);
         }
 
-        // Keyboard controls
+        // Keyboard controls - SPACE and OPTION both work!
         const keys = {};
-        let moveBoopCooldown = false;
+        let spinTriggered = false;
 
         document.addEventListener('keydown', (e) => {
             if (!keys[e.code]) {
@@ -294,8 +267,9 @@
             }
             keys[e.code] = true;
             
-            // Space bar - spin and collect nearby items!
-            if (e.code === 'Space') {
+            // SPACE or OPTION (Alt on Windows, Option on Mac) - spin and collect!
+            if ((e.code === 'Space' || e.key === 'Alt') && !spinTriggered) {
+                spinTriggered = true;
                 princess.spinning = true;
                 playSpinSound();
                 
@@ -322,12 +296,21 @@
                     }
                 }
                 
-                setTimeout(() => princess.spinning = false, 400);
+                setTimeout(() => {
+                    princess.spinning = false;
+                    spinTriggered = false;
+                }, 400);
             }
         });
 
         document.addEventListener('keyup', (e) => {
             keys[e.code] = false;
+            
+            // Reset spin trigger on key up for Alt/Option
+            if (e.key === 'Alt') {
+                spinTriggered = false;
+                princess.spinning = false;
+            }
         });
 
         // Update game state with BOAT PHYSICS!
@@ -354,11 +337,11 @@
             princess.x += princess.vx;
             princess.y += princess.vy;
 
-            // Keep within bounds (bounces off walls with physics!)
+            // Keep within bounds (bounces off walls!)
             const margin = 50;
             if (princess.x < margin) {
                 princess.x = margin;
-                princess.vx *= -0.5;  // Bounce with energy loss
+                princess.vx *= -0.5;
             }
             if (princess.x > canvas.width - margin) {
                 princess.x = canvas.width - margin;
@@ -373,7 +356,7 @@
                 princess.vy *= -0.5;
             }
 
-            // Spin animation with variable speed!
+            // Spin animation!
             if (princess.spinning) {
                 princess.spinAngle += 0.4 + Math.random() * 0.2;
             } else {
@@ -384,7 +367,6 @@
             collectibles.forEach(c => {
                 c.floatOffset += c.floatSpeed;
                 
-                // Bounce animation on spawn
                 if (c.scale < c.targetScale) {
                     c.scale += 0.15;
                     if (c.scale > c.targetScale) {
@@ -407,7 +389,6 @@
                     document.getElementById('score').innerHTML = 
                         `✨ Collected: ${score} ✨ | 🏆 Special Treasures: ${specialScore}`;
                     
-                    // Remove and respawn
                     const idx = collectibles.indexOf(c);
                     if (idx > -1) collectibles.splice(idx, 1);
                     spawnCollectible(c.isSpecial);
@@ -424,7 +405,7 @@
                 const p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.vx *= 0.95;  // Slow down gradually
+                p.vx *= 0.95;
                 p.vy *= 0.95;
                 p.life -= 0.018;
                 p.rotation += p.rotationSpeed;
@@ -435,11 +416,10 @@
 
         // Draw everything
         function draw() {
-            // Clear canvas with semi-transparent layer for trails!
             ctx.fillStyle = 'rgba(46, 139, 87, 0.95)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw decorative garden elements (more variety!)
+            // Decorative garden elements!
             const decorations = ['🌿', '🌱', '🍀', '🌷'];
             for (let i = 0; i < 80; i++) {
                 const x = ((i * 137) % canvas.width);
@@ -448,7 +428,7 @@
                 ctx.fillText(decorations[i % decorations.length], x, y);
             }
 
-            // Draw collectibles with floating effect and special glow!
+            // Draw collectibles with floating effect!
             collectibles.forEach(c => {
                 const floatY = Math.sin(c.floatOffset) * (c.isSpecial ? 8 : 5);
                 
@@ -456,7 +436,6 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                // Special items have rainbow glow!
                 if (c.isSpecial) {
                     const hue = (Date.now() / 10) % 360;
                     ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
@@ -494,21 +473,20 @@
                 ctx.restore();
             });
 
-            // ========== DRAW PRINCESS (with boat physics visual feedback!) ==========
+            // ========== DRAW PRINCESS! ==========
             ctx.save();
             ctx.translate(princess.x, princess.y);
             
             if (princess.spinning) {
                 ctx.rotate(princess.spinAngle);
             } else {
-                // Slight tilt based on movement direction for boat feel!
                 const moveSpeed = Math.sqrt(princess.vx*princess.vx + princess.vy*princess.vy);
                 if (moveSpeed > 0.5) {
                     ctx.rotate(Math.atan2(princess.vx, -princess.vy) * 0.15);
                 }
             }
 
-            // Water wake behind princess when moving!
+            // Water wake behind princess!
             const speed = Math.sqrt(princess.vx*princess.vx + princess.vy*princess.vy);
             if (speed > 1) {
                 ctx.save();
@@ -524,7 +502,7 @@
                 ctx.restore();
             }
 
-            // Princess crown (bigger and more detailed!)
+            // Princess crown!
             ctx.fillStyle = '#FFD700';
             ctx.beginPath();
             ctx.moveTo(-18, -32);
@@ -538,7 +516,6 @@
             ctx.closePath();
             ctx.fill();
             
-            // Crown jewels!
             ctx.fillStyle = '#FF1493';
             ctx.beginPath();
             ctx.arc(0, -38, 3, 0, Math.PI * 2);
@@ -557,14 +534,13 @@
             ctx.arc(8, -14, 4, 0, Math.PI * 2);
             ctx.fill();
             
-            // Eye highlights (makes her look friendly!)
             ctx.fillStyle = '#FFF';
             ctx.beginPath();
             ctx.arc(-9, -15, 1.5, 0, Math.PI * 2);
             ctx.arc(7, -15, 1.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Smile (curvier and cuter!)
+            // Smile!
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -578,7 +554,7 @@
             ctx.arc(14, -6, 4, 0, Math.PI * 2);
             ctx.fill();
 
-            // Pink dress (wider!)
+            // Pink dress!
             ctx.fillStyle = princess.spinning ? 
                 `hsl(${Date.now() % 360}, 70%, 65%)` : '#FFB6C1';
             ctx.beginPath();
@@ -586,7 +562,7 @@
             ctx.lineTo(22, 8);
             ctx.lineTo(32, 50);
             ctx.lineTo(-32, 50);
-            ctx.closePath());
+            ctx.closePath();
             ctx.fill();
 
             // Dress details!
